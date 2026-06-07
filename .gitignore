@@ -25,3 +25,22 @@ replay_pid*
 
 # Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
 .kotlin/
+
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Local user data, training history, and skill backups/exports
+/.data/
+/.local-data/
+/data/
+/user-data/
+/browser-data/
+/backups/
+/exports/
+
+/progress-tracker-data*.json
+/progress-tracker-backup*.json
+/training-data*.json
+/skills-data*.json

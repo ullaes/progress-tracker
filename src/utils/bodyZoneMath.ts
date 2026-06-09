@@ -4,6 +4,7 @@ import { trainingImpact } from "./trainingMath";
 export type ZoneMeasurementProgress = {
   relatedCount: number;
   measuredCount: number;
+  changePercent: number | null;
   progressPercent: number | null;
 };
 
@@ -12,15 +13,21 @@ export type ZoneCorrelation = {
   sampleCount: number;
 };
 
-function metricProgressPercent(metric: BodyMetric, measurements: BodyMeasurement[]): number | null {
+export function metricMeasurementChangePercent(metric: BodyMetric, measurements: BodyMeasurement[]): number | null {
   const values = measurements
     .filter((measurement) => measurement.metricId === metric.id)
     .sort((a, b) => `${a.date}T${a.time ?? "00:00"}`.localeCompare(`${b.date}T${b.time ?? "00:00"}`));
   const first = values[0]?.value;
   const latest = values.at(-1)?.value;
   if (first === undefined || latest === undefined || first === 0 || values.length < 2) return null;
+  return ((latest - first) / Math.abs(first)) * 100;
+}
+
+export function metricMeasurementProgressPercent(metric: BodyMetric, measurements: BodyMeasurement[]): number | null {
+  const change = metricMeasurementChangePercent(metric, measurements);
+  if (change === null) return null;
   const direction = metric.betterDirection === "higher" ? 1 : -1;
-  return ((latest - first) / Math.abs(first)) * 100 * direction;
+  return change * direction;
 }
 
 export function getZoneMeasurementProgress(
@@ -29,13 +36,16 @@ export function getZoneMeasurementProgress(
   measurements: BodyMeasurement[],
 ): ZoneMeasurementProgress {
   const related = metrics.filter((metric) => (metric.zoneBindings ?? []).some((binding) => binding.zoneId === zoneId));
+  let weightedChange = 0;
   let weightedProgress = 0;
   let totalWeight = 0;
 
   for (const metric of related) {
     const binding = (metric.zoneBindings ?? []).find((item) => item.zoneId === zoneId);
-    const progress = metricProgressPercent(metric, measurements);
-    if (binding && progress !== null) {
+    const change = metricMeasurementChangePercent(metric, measurements);
+    const progress = metricMeasurementProgressPercent(metric, measurements);
+    if (binding && change !== null && progress !== null) {
+      weightedChange += change * binding.weight;
       weightedProgress += progress * binding.weight;
       totalWeight += binding.weight;
     }
@@ -43,7 +53,8 @@ export function getZoneMeasurementProgress(
 
   return {
     relatedCount: related.length,
-    measuredCount: totalWeight > 0 ? related.filter((metric) => metricProgressPercent(metric, measurements) !== null).length : 0,
+    measuredCount: totalWeight > 0 ? related.filter((metric) => metricMeasurementProgressPercent(metric, measurements) !== null).length : 0,
+    changePercent: totalWeight ? weightedChange / totalWeight : null,
     progressPercent: totalWeight ? weightedProgress / totalWeight : null,
   };
 }

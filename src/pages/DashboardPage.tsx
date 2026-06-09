@@ -5,15 +5,14 @@ import { deriveSkillState } from "../domain/deriveSkillState";
 import { useI18n } from "../i18n/I18nContext";
 import { useAppStore } from "../store/AppStore";
 import { ZONE_IDS, type BodyMetric, type ZoneId } from "../types";
-import { getZoneMeasurementProgress, getZoneTrainingMeasurementCorrelation } from "../utils/bodyZoneMath";
+import { getZoneTrainingMeasurementCorrelation, metricMeasurementChangePercent, metricMeasurementProgressPercent, zoneMeasurementColor } from "../utils/bodyZoneMath";
 
-function metricProgress(metric: BodyMetric, measurements: ReturnType<typeof useAppStore>["bodyMeasurements"]) {
-  const zone = metric.zoneBindings?.[0]?.zoneId;
-  return zone ? getZoneMeasurementProgress(zone, [metric], measurements).progressPercent : null;
+function metricChangePercent(metric: BodyMetric, measurements: ReturnType<typeof useAppStore>["bodyMeasurements"]) {
+  return metricMeasurementChangePercent(metric, measurements);
 }
 
 export function DashboardPage({ goTo }: { goTo: (page: "log" | "skills", entryType?: "training" | "test") => void }) {
-  const { skills, entries, bodyMetrics, bodyMeasurements, resetDemo } = useAppStore();
+  const { skills, entries, bodyMetrics, bodyMeasurements } = useAppStore();
   const { dataLabel, t, zoneName } = useI18n();
   const [selectedZone, setSelectedZone] = useState<ZoneId | null>(null);
   const [mapMode, setMapMode] = useState<"training" | "measurements">("training");
@@ -35,11 +34,11 @@ export function DashboardPage({ goTo }: { goTo: (page: "log" | "skills", entryTy
           <div className="panel-heading"><div><span className="eyebrow">{selectedZone ? t("dashboard.filteredZone") : mapMode === "training" ? t("dashboard.allSkills") : t("dashboard.allMeasurements")}</span><h2>{selectedZone ? zoneName(selectedZone) : mapMode === "training" ? t("dashboard.skillOverview") : t("dashboard.measurementOverview")}</h2></div>{selectedZone && <button className="ghost" onClick={() => setSelectedZone(null)}>{t("dashboard.clear")}</button>}</div>
           <div className="skill-list">
             {mapMode === "training" ? filteredSkills.map((skill) => <SkillCard key={skill.id} skill={skill} state={states.find((state) => state.skillId === skill.id)!} />) : filteredMetrics.map((metric) => {
-              const progress = metricProgress(metric, bodyMeasurements);
-              return <article className="measurement-dashboard-card" key={metric.id}><strong>{dataLabel(metric.name)}</strong><span>{progress === null ? t("measurements.noData") : `${progress > 0 ? "+" : ""}${progress.toFixed(1)}%`}</span><small>{t(`measurements.${metric.betterDirection}`)}</small></article>;
+              const changePercent = metricChangePercent(metric, bodyMeasurements);
+              const progressPercent = metricMeasurementProgressPercent(metric, bodyMeasurements);
+              return <article className="measurement-dashboard-card" key={metric.id}><strong>{dataLabel(metric.name)}</strong><span style={{ color: zoneMeasurementColor(progressPercent) }}>{changePercent === null ? t("measurements.noData") : `${changePercent > 0 ? "+" : ""}${changePercent.toFixed(1)}%`}</span><small>{t(`measurements.${metric.betterDirection}`)}</small></article>;
             })}
           </div>
-          <button className="ghost wide" onClick={resetDemo}>{t("dashboard.reset")}</button>
         </div>
       </section>
 

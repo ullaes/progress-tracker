@@ -286,6 +286,9 @@ label small { color: #788797; font-weight: 500; }
 .event-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .event-table th, .event-table td { padding: 12px; border-bottom: 1px solid #26303d; text-align: left; }
 .event-table th { color: #7f91a6; text-transform: uppercase; letter-spacing: .08em; font-size: .72rem; }
+.table-actions { display: flex; gap: 5px; white-space: nowrap; }
+.table-actions button { padding: 7px 9px; }
+.danger-text { color: #e09b92; }
 
 .guide-page { max-width: 1180px; }
 .guide-hero { max-width: 820px; margin-bottom: 28px; }

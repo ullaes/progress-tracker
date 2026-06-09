@@ -5,6 +5,7 @@ import type { HistoryGranularity } from "../domain/history";
 import { useI18n } from "../i18n/I18nContext";
 import { useAppStore } from "../store/AppStore";
 import { ZONE_IDS, type BodyMetric, type ZoneId } from "../types";
+import { metricMeasurementProgressPercent, zoneMeasurementColor } from "../utils/bodyZoneMath";
 import { formatDateTime, todayIso } from "../utils/date";
 
 function currentTime(): string {
@@ -41,6 +42,7 @@ export function BodyMeasurementsPage() {
   const earliest = metricMeasurements.at(-1);
   const change = latest && earliest ? latest.value - earliest.value : null;
   const progress = change === null || !metric ? null : change * (metric.betterDirection === "higher" ? 1 : -1);
+  const progressPercent = metric ? metricMeasurementProgressPercent(metric, bodyMeasurements) : null;
 
   const submitMeasurement = (event: React.FormEvent) => {
     event.preventDefault();
@@ -116,8 +118,8 @@ export function BodyMeasurementsPage() {
 
       <section className="analytics-summary measurements-summary">
         <article className="summary-card"><span>{t("measurements.latest")}</span><strong>{latest ? `${latest.value.toFixed(1)} ${dataLabel(metric.unit)}` : "—"}</strong><small>{latest ? formatDateTime(latest.date, latest.time, locale) : t("measurements.noData")}</small></article>
-        <article className="summary-card"><span>{t("measurements.totalChange")}</span><strong>{change === null ? "—" : `${change > 0 ? "+" : ""}${change.toFixed(1)} ${dataLabel(metric.unit)}`}</strong><small>{t(`measurements.${metric.betterDirection}`)}</small></article>
-        <article className="summary-card"><span>{t("measurements.progress")}</span><strong className={progress !== null && progress < 0 ? "negative-progress" : "positive-progress"}>{progress === null ? "—" : progress > 0 ? t("measurements.improved") : progress < 0 ? t("measurements.regressed") : t("measurements.unchanged")}</strong><small>{metricMeasurements.length} {t("measurements.records")}</small></article>
+        <article className="summary-card"><span>{t("measurements.totalChange")}</span><strong style={{ color: zoneMeasurementColor(progressPercent) }}>{change === null ? "—" : `${change > 0 ? "+" : ""}${change.toFixed(1)} ${dataLabel(metric.unit)}`}</strong><small>{t(`measurements.${metric.betterDirection}`)}</small></article>
+        <article className="summary-card"><span>{t("measurements.progress")}</span><strong style={{ color: zoneMeasurementColor(progressPercent) }}>{progress === null ? "—" : progress > 0 ? t("measurements.improved") : progress < 0 ? t("measurements.regressed") : t("measurements.unchanged")}</strong><small>{metricMeasurements.length} {t("measurements.records")}</small></article>
       </section>
 
       <section className="panel chart-panel">

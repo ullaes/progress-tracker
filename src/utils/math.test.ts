@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import { deriveSkillState } from "../domain/deriveSkillState";
 import { buildSkillHistory } from "../domain/history";
 import { buildBodyMeasurementHistory } from "../domain/bodyMeasurementHistory";
-import { demoData, demoSkills } from "../data/demoData";
-import type { BodyMetric, Skill } from "../types";
+import { createEmptyAppData } from "../data/appData";
+import type { AppData, BodyMetric, Skill } from "../types";
 import { decayStatus, decayValue } from "./decay";
 import { fractionalLevel, integerLevel } from "./levelMath";
 import { backupFileName, parseAppDataBackup, serializeAppDataBackup } from "./dataTransfer";
-import { getZoneMeasurementProgress, getZoneTrainingMeasurementCorrelation, zoneMeasurementColor } from "./bodyZoneMath";
+import { getZoneMeasurementProgress, getZoneTrainingMeasurementCorrelation, metricMeasurementChangePercent, metricMeasurementProgressPercent, zoneMeasurementColor } from "./bodyZoneMath";
+import { removeEntry, replaceEntry } from "./entryData";
 import { getZoneHealth, getZoneLevel, zoneHealthColor } from "./zoneMath";
 import { entryDateTime, meditationEffectiveMinutes, trainingImpact, trainingReps, trainingVolume } from "./trainingMath";
 
@@ -52,7 +53,21 @@ const skill: Skill = {
   zoneBindings: [{ zoneId: "chest", weight: 0.5 }],
   graceDays: 5,
   halfLifeDays: 10,
-  levels,
+  levels: [{ level: 0, threshold: 0 }, ...levels],
+};
+
+const sampleData: AppData = {
+  version: 6,
+  skills: [skill],
+  entries: [{ id: "sample-test", type: "test", skillId: skill.id, date: "2026-01-01", time: "09:00", value: 1 }],
+  bodyMetrics: [{
+    id: "sample-waist",
+    name: "Waist",
+    unit: "cm",
+    betterDirection: "lower",
+    zoneBindings: [{ zoneId: "abdomen", weight: 1 }],
+  }],
+  bodyMeasurements: [{ id: "sample-measurement", metricId: "sample-waist", date: "2026-01-01", time: "09:30", value: 90 }],
 };
 
 describe("derived skill state", () => {
@@ -167,26 +182,43 @@ describe("training sessions", () => {
   });
 });
 
-describe("starter data", () => {
-  it("gives every starter skill an explicit zero level and baseline test", () => {
-    for (const starterSkill of demoSkills) {
-      expect(starterSkill.levels).toContainEqual({ level: 0, threshold: 0 });
-      expect(demoData.entries).toContainEqual(expect.objectContaining({
-        type: "test",
-        skillId: starterSkill.id,
-        value: 0,
-      }));
-    }
+describe("entry editing", () => {
+  it("replaces one entry without changing its position or other entries", () => {
+    const entries = [
+      { id: "first", type: "test" as const, skillId: skill.id, date: "2026-01-01", value: 1 },
+      { id: "second", type: "test" as const, skillId: skill.id, date: "2026-01-02", value: 2 },
+    ];
+    expect(replaceEntry(entries, { ...entries[0], value: 10 })).toEqual([
+      { ...entries[0], value: 10 },
+      entries[1],
+    ]);
+  });
+
+  it("deletes only the selected entry", () => {
+    const entries = [
+      { id: "first", type: "test" as const, skillId: skill.id, date: "2026-01-01", value: 1 },
+      { id: "second", type: "training" as const, skillId: skill.id, date: "2026-01-02", sets: [{ id: "set", reps: 5 }] },
+    ];
+    expect(removeEntry(entries, "first")).toEqual([entries[1]]);
+  });
+});
+
+describe("initial data", () => {
+  it("starts without seeded user records", () => {
+    expect(createEmptyAppData()).toEqual({
+      version: 6,
+      skills: [],
+      entries: [],
+      bodyMetrics: [],
+      bodyMeasurements: [],
+    });
   });
 });
 
 describe("data backup", () => {
   it("exports and restores all application data", () => {
-    const restored = parseAppDataBackup(serializeAppDataBackup(demoData));
-    expect(restored).toEqual({
-      ...demoData,
-      entries: demoData.entries.map((entry) => ({ ...entry, time: entry.time ?? "12:00" })),
-    });
+    const restored = parseAppDataBackup(serializeAppDataBackup(sampleData));
+    expect(restored).toEqual(sampleData);
     expect(backupFileName(new Date("2026-06-07T12:00:00Z"))).toBe("progress-tracker-data-2026-06-07.json");
   });
 
@@ -198,29 +230,30 @@ describe("data backup", () => {
       entries: [{ id: "entry", type: "training", skillId: "missing", date: "2026-06-07" }],
     }))).toBeNull();
     expect(parseAppDataBackup(JSON.stringify({
-      ...demoData,
-      entries: [{ id: "incomplete-meditation", type: "training", skillId: "skill-focus", date: "2026-06-08", meditationType: "visual" }],
+      ...sampleData,
+      entries: [{ id: "incomplete-meditation", type: "training", skillId: skill.id, date: "2026-06-08", meditationType: "visual" }],
     }))).toBeNull();
   });
 
   it("upgrades backups without body measurements", () => {
     const restored = parseAppDataBackup(JSON.stringify({
       version: 3,
-      skills: demoData.skills,
-      entries: demoData.entries,
+      skills: sampleData.skills,
+      entries: sampleData.entries,
     }));
     expect(restored?.version).toBe(6);
-    expect(restored?.bodyMetrics.length).toBeGreaterThan(0);
+    expect(restored?.bodyMetrics).toEqual([]);
     expect(restored?.bodyMeasurements).toEqual([]);
   });
 
-  it("adds zone bindings to older body metrics", () => {
+  it("normalizes missing zone bindings without adding preset bindings", () => {
     const restored = parseAppDataBackup(JSON.stringify({
-      ...demoData,
+      ...sampleData,
       version: 5,
-      bodyMetrics: demoData.bodyMetrics.map(({ zoneBindings: _zoneBindings, ...metric }) => metric),
+      bodyMetrics: sampleData.bodyMetrics.map(({ zoneBindings: _zoneBindings, ...metric }) => metric),
+      bodyMeasurements: [],
     }));
-    expect(restored?.bodyMetrics.find((metric) => metric.id === "body-biceps")?.zoneBindings.length).toBe(2);
+    expect(restored?.bodyMetrics[0].zoneBindings).toEqual([]);
   });
 });
 
@@ -241,6 +274,25 @@ describe("body zone measurement progress", () => {
     expect(progress.progressPercent).toBe(10);
     expect(zoneMeasurementColor(progress.progressPercent)).toBe("hsl(120 58% 43%)");
     expect(zoneMeasurementColor(-10)).toBe("hsl(0 58% 43%)");
+    expect(zoneMeasurementColor(0)).toBe("hsl(60 58% 43%)");
+    expect(zoneMeasurementColor(5)).toBe("hsl(90 58% 43%)");
+  });
+
+  it("keeps actual measurement change separate from directed progress", () => {
+    const measurements = [
+      { id: "1", metricId: "waist", date: "2026-01-01", value: 90 },
+      { id: "2", metricId: "waist", date: "2026-03-01", value: 99 },
+    ];
+
+    expect(metricMeasurementChangePercent(waistMetric, measurements)).toBe(10);
+    expect(metricMeasurementProgressPercent(waistMetric, measurements)).toBe(-10);
+    expect(getZoneMeasurementProgress("abdomen", [waistMetric], measurements)).toEqual({
+      relatedCount: 1,
+      measuredCount: 1,
+      changePercent: 10,
+      progressPercent: -10,
+    });
+    expect(zoneMeasurementColor(metricMeasurementProgressPercent(waistMetric, measurements))).toBe("hsl(0 58% 43%)");
   });
 
   it("correlates linked monthly training impact and directed measurement changes", () => {

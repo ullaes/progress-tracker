@@ -64,7 +64,7 @@ export function BodyMap({ skills, states, metrics, measurements, mode, onModeCha
           {hoverHealth && hoverHealth.relatedCount > 0 && <span>{t("body.stableCount")} {hoverHealth.stableCount} / {t("body.decayingCount")} {hoverHealth.decayingCount} / {t("body.staleCount")} {hoverHealth.staleCount}</span>}
           <span>{relatedSkills.length ? relatedSkills.map((skill) => dataLabel(skill.name)).join(", ") : t("body.noSkills")}</span>
         </> : <>
-          <span>{t("body.measurementProgress")} {hoverMeasurement?.progressPercent === null ? "—" : `${hoverMeasurement?.progressPercent.toFixed(1)}%`}</span>
+          <span style={{ color: zoneMeasurementColor(hoverMeasurement?.progressPercent ?? null) }}>{t("body.measurementProgress")} {hoverMeasurement?.changePercent === null ? "—" : `${hoverMeasurement && hoverMeasurement.changePercent > 0 ? "+" : ""}${hoverMeasurement?.changePercent.toFixed(1)}%`}</span>
           <span>{relatedMetrics.length ? relatedMetrics.map((metric) => dataLabel(metric.name)).join(", ") : t("body.noMeasurements")}</span>
         </>}
       </div>}

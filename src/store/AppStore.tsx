@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { demoData } from "../data/demoData";
+import { createEmptyAppData, CURRENT_DATA_VERSION, normalizeBodyMetrics, normalizeEntries, normalizeSkills } from "../data/appData";
 import type { AppData, BodyMeasurement, BodyMetric, Entry, Skill } from "../types";
+import { removeEntry, replaceEntry } from "../utils/entryData";
 
 const STORAGE_KEY = "progress-tracker-data-v1";
 
@@ -8,65 +9,33 @@ type Store = AppData & {
   saveSkill: (skill: Skill) => void;
   deleteSkill: (skillId: string) => void;
   addEntry: (entry: Entry) => void;
+  updateEntry: (entry: Entry) => void;
+  deleteEntry: (entryId: string) => void;
   addBodyMetric: (metric: BodyMetric) => void;
   saveBodyMetric: (metric: BodyMetric) => void;
   addBodyMeasurement: (measurement: BodyMeasurement) => void;
   deleteBodyMeasurement: (measurementId: string) => void;
   importData: (data: AppData) => void;
-  resetDemo: () => void;
 };
 
 const StoreContext = createContext<Store | null>(null);
 
-function normalizeBodyMetrics(metrics: BodyMetric[]): BodyMetric[] {
-  return metrics.map((metric) => ({
-    ...metric,
-    zoneBindings: metric.zoneBindings ?? demoData.bodyMetrics.find((item) => item.id === metric.id)?.zoneBindings ?? [],
-  }));
-}
-
 function loadData(): AppData {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return demoData;
-    const parsed = JSON.parse(saved) as Partial<AppData> & Pick<AppData, "skills" | "entries"> & { version?: number };
-    if (
-      parsed.version === demoData.version
-      && Array.isArray(parsed.bodyMetrics)
-      && Array.isArray(parsed.bodyMeasurements)
-    ) {
-      const normalized = { ...parsed, bodyMetrics: normalizeBodyMetrics(parsed.bodyMetrics) } as AppData;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-      return normalized;
-    }
-    const existingSkillIds = new Set(parsed.skills.map((skill) => skill.id));
-    const existingEntryIds = new Set(parsed.entries.map((entry) => entry.id));
+    if (!saved) return createEmptyAppData();
+    const parsed = JSON.parse(saved) as Partial<AppData>;
     const migrated: AppData = {
-      version: demoData.version,
-      skills: [
-        ...parsed.skills.map((skill) => ({
-          ...skill,
-          ...(skill.trainingMode === undefined && skill.id === "skill-focus" ? { trainingMode: "meditation" as const } : {}),
-          levels: skill.levels.some((level) => level.level === 0)
-            ? skill.levels
-            : [{ level: 0, threshold: 0 }, ...skill.levels],
-        })),
-        ...demoData.skills.filter((skill) => !existingSkillIds.has(skill.id)),
-      ],
-      entries: [
-        ...parsed.entries.map((entry) => ({
-          ...entry,
-          time: entry.time ?? "12:00",
-        })),
-        ...demoData.entries.filter((entry) => !existingEntryIds.has(entry.id)),
-      ],
-      bodyMetrics: normalizeBodyMetrics(parsed.bodyMetrics ?? demoData.bodyMetrics),
-      bodyMeasurements: parsed.bodyMeasurements ?? [],
+      version: CURRENT_DATA_VERSION,
+      skills: normalizeSkills(Array.isArray(parsed.skills) ? parsed.skills : []),
+      entries: normalizeEntries(Array.isArray(parsed.entries) ? parsed.entries : []),
+      bodyMetrics: normalizeBodyMetrics(Array.isArray(parsed.bodyMetrics) ? parsed.bodyMetrics : []),
+      bodyMeasurements: Array.isArray(parsed.bodyMeasurements) ? parsed.bodyMeasurements : [],
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
     return migrated;
   } catch {
-    return demoData;
+    return createEmptyAppData();
   }
 }
 
@@ -98,6 +67,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           entries: current.entries.filter((item) => item.skillId !== skillId),
         })),
       addEntry: (entry) => update((current) => ({ ...current, entries: [...current.entries, entry] })),
+      updateEntry: (entry) => update((current) => ({ ...current, entries: replaceEntry(current.entries, entry) })),
+      deleteEntry: (entryId) => update((current) => ({ ...current, entries: removeEntry(current.entries, entryId) })),
       addBodyMetric: (metric) => update((current) => ({ ...current, bodyMetrics: [...current.bodyMetrics, { ...metric, zoneBindings: metric.zoneBindings ?? [] }] })),
       saveBodyMetric: (metric) => update((current) => ({
         ...current,
@@ -109,7 +80,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         bodyMeasurements: current.bodyMeasurements.filter((measurement) => measurement.id !== measurementId),
       })),
       importData: (imported) => update(() => ({ ...imported, bodyMetrics: normalizeBodyMetrics(imported.bodyMetrics) })),
-      resetDemo: () => update(() => demoData),
     }),
     [data],
   );

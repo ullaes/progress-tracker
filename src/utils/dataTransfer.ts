@@ -1,7 +1,6 @@
-import { demoBodyMetrics } from "../data/demoData";
+import { CURRENT_DATA_VERSION, normalizeBodyMetrics, normalizeEntries, normalizeSkills } from "../data/appData";
 import { ZONE_IDS, type AppData, type BodyMeasurement, type BodyMetric, type Entry, type Skill, type TrainingSet, type ZoneBinding } from "../types";
 
-const CURRENT_VERSION = 6;
 const zoneIds = new Set<string>(ZONE_IDS);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -114,22 +113,12 @@ export function parseAppDataBackup(text: string): AppData | null {
     const value: unknown = JSON.parse(text);
     if (!isRecord(value) || !Array.isArray(value.skills) || !Array.isArray(value.entries)) return null;
     if (!value.skills.every(isSkill) || !value.entries.every(isEntry)) return null;
-    const rawBodyMetrics = value.bodyMetrics === undefined ? demoBodyMetrics : value.bodyMetrics;
+    const rawBodyMetrics = value.bodyMetrics === undefined ? [] : value.bodyMetrics;
     const bodyMeasurements = value.bodyMeasurements === undefined ? [] : value.bodyMeasurements;
     if (!Array.isArray(rawBodyMetrics) || !Array.isArray(bodyMeasurements)) return null;
     if (!rawBodyMetrics.every(isBodyMetric) || !bodyMeasurements.every(isBodyMeasurement)) return null;
-    const bodyMetrics = rawBodyMetrics.map((metric) => ({
-      ...metric,
-      zoneBindings: metric.zoneBindings ?? demoBodyMetrics.find((item) => item.id === metric.id)?.zoneBindings ?? [],
-    }));
-
-    const skills = value.skills.map((skill) => ({
-      ...skill,
-      ...(skill.trainingMode === undefined && skill.id === "skill-focus" ? { trainingMode: "meditation" as const } : {}),
-      levels: skill.levels.some((level) => level.level === 0)
-        ? skill.levels
-        : [{ level: 0, threshold: 0 }, ...skill.levels],
-    }));
+    const bodyMetrics = normalizeBodyMetrics(rawBodyMetrics);
+    const skills = normalizeSkills(value.skills);
     const skillIds = new Set(skills.map((skill) => skill.id));
     const entryIds = new Set(value.entries.map((entry) => entry.id));
     const bodyMetricIds = new Set(bodyMetrics.map((metric) => metric.id));
@@ -144,12 +133,9 @@ export function parseAppDataBackup(text: string): AppData | null {
     ) return null;
 
     return {
-      version: CURRENT_VERSION,
+      version: CURRENT_DATA_VERSION,
       skills,
-      entries: value.entries.map((entry) => ({
-        ...entry,
-        time: entry.time ?? "12:00",
-      })),
+      entries: normalizeEntries(value.entries),
       bodyMetrics,
       bodyMeasurements: bodyMeasurements.map((measurement) => ({
         ...measurement,

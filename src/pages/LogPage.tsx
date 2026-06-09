@@ -17,26 +17,35 @@ function currentTime(): string {
 
 export function LogPage({
   initialType,
-  goDashboard,
+  editingEntry,
+  onDone,
 }: {
   initialType: EntryType;
-  goDashboard: () => void;
+  editingEntry: Entry | null;
+  onDone: () => void;
 }) {
-  const { skills, addEntry } = useAppStore();
+  const { skills, addEntry, updateEntry } = useAppStore();
   const { dataLabel, t } = useI18n();
-  const [type, setType] = useState<EntryType>(initialType);
-  const [skillId, setSkillId] = useState(skills[0]?.id ?? "");
-  const [date, setDate] = useState(todayIso());
-  const [time, setTime] = useState(currentTime());
-  const [value, setValue] = useState("");
-  const [trainingIntensity, setTrainingIntensity] = useState("5");
-  const [meditationType, setMeditationType] = useState<NonNullable<Entry["meditationType"]>>("visual");
-  const [meditationQuality, setMeditationQuality] = useState("7");
-  const [meditationDuration, setMeditationDuration] = useState("10");
-  const [sets, setSets] = useState<EditableSet[]>([newSet()]);
-  const [notes, setNotes] = useState("");
+  const [type, setType] = useState<EntryType>(editingEntry?.type ?? initialType);
+  const [skillId, setSkillId] = useState(editingEntry?.skillId ?? skills[0]?.id ?? "");
+  const [date, setDate] = useState(editingEntry?.date ?? todayIso());
+  const [time, setTime] = useState(editingEntry?.time ?? currentTime());
+  const [value, setValue] = useState(editingEntry?.value?.toString() ?? "");
+  const [trainingIntensity, setTrainingIntensity] = useState(editingEntry?.trainingIntensity?.toString() ?? "5");
+  const [meditationType, setMeditationType] = useState<NonNullable<Entry["meditationType"]>>(editingEntry?.meditationType ?? "visual");
+  const [meditationQuality, setMeditationQuality] = useState(editingEntry?.meditationQuality?.toString() ?? "7");
+  const [meditationDuration, setMeditationDuration] = useState(editingEntry?.meditationDuration?.toString() ?? "10");
+  const [sets, setSets] = useState<EditableSet[]>(editingEntry?.sets?.length
+    ? editingEntry.sets.map((set) => ({ id: set.id, value: set.value?.toString() ?? "", reps: set.reps.toString() }))
+    : editingEntry?.type === "training" && !editingEntry.meditationType
+      ? [{ id: crypto.randomUUID(), value: editingEntry.value?.toString() ?? "", reps: "" }]
+      : [newSet()]);
+  const [notes, setNotes] = useState(editingEntry?.notes ?? "");
   const selectedSkill = skills.find((skill) => skill.id === skillId);
   const isMeditation = selectedSkill?.trainingMode === "meditation";
+  const isLegacyTrainingWithoutSets = editingEntry?.type === "training"
+    && !editingEntry.sets?.length
+    && !editingEntry.meditationType;
 
   const parsedSets = useMemo<TrainingSet[]>(
     () => sets
@@ -63,30 +72,32 @@ export function LogPage({
     event.preventDefault();
     if (!selectedSkill) return;
     if (type === "test" && value.trim() === "") return;
-    if (type === "training" && !isMeditation && !parsedSets.length) return;
+    if (type === "training" && !isMeditation && !parsedSets.length && !isLegacyTrainingWithoutSets) return;
     if (type === "training" && isMeditation && (!Number.isFinite(Number(meditationDuration)) || Number(meditationDuration) <= 0)) return;
-    addEntry({
-      id: crypto.randomUUID(),
+    const entry: Entry = {
+      id: editingEntry?.id ?? crypto.randomUUID(),
       type,
       skillId,
       date,
       time,
       value: type === "test" ? Number(value) : undefined,
       trainingIntensity: type === "training" ? Number(isMeditation ? meditationQuality : trainingIntensity) : undefined,
-      sets: type === "training" && !isMeditation ? parsedSets : undefined,
+      sets: type === "training" && !isMeditation && parsedSets.length ? parsedSets : undefined,
       meditationType: type === "training" && isMeditation ? meditationType : undefined,
       meditationQuality: type === "training" && isMeditation ? Number(meditationQuality) : undefined,
       meditationDuration: type === "training" && isMeditation ? Number(meditationDuration) : undefined,
       unit: selectedSkill.unit,
       notes: notes.trim() || undefined,
-    });
-    goDashboard();
+    };
+    if (editingEntry) updateEntry(entry);
+    else addEntry(entry);
+    onDone();
   };
 
   return (
     <main className="page narrow">
-      <span className="eyebrow">{t("log.eyebrow")}</span>
-      <h1>{t("log.title")}</h1>
+      <span className="eyebrow">{editingEntry ? t("log.editEyebrow") : t("log.eyebrow")}</span>
+      <h1>{editingEntry ? t("log.editTitle") : t("log.title")}</h1>
       <form className="form panel" onSubmit={submit}>
         <label>
           {t("log.entryType")}
@@ -237,8 +248,8 @@ export function LogPage({
           <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} />
         </label>
         <div className="form-actions">
-          <button type="submit">{t("log.save")}</button>
-          <button type="button" className="secondary" onClick={goDashboard}>{t("common.cancel")}</button>
+          <button type="submit">{editingEntry ? t("log.saveChanges") : t("log.save")}</button>
+          <button type="button" className="secondary" onClick={onDone}>{t("common.cancel")}</button>
         </div>
       </form>
     </main>

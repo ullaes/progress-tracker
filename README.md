@@ -21,8 +21,8 @@ npm test
 ## Features
 
 - Interactive SVG body map with 16 selectable zones
-- Demo physical and cognitive skills
-- Explicit level 0 baseline and starter exercises for major muscle groups, Kegel, focus and memory
+- Empty user-owned workspace without seeded records
+- Explicit level 0 baseline for user-created skills
 - Training and test entry logging
 - Multiple same-day training sessions with time, per-set value/weight, repetitions and calculated volume
 - Independent body measurements with custom metrics, progress direction, history and charts

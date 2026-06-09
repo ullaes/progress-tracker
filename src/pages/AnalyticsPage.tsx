@@ -3,11 +3,12 @@ import { ProgressChart } from "../components/ProgressChart/ProgressChart";
 import { buildSkillHistory, historyWindowStart, type HistoryGranularity } from "../domain/history";
 import { useI18n } from "../i18n/I18nContext";
 import { useAppStore } from "../store/AppStore";
+import type { Entry } from "../types";
 import { formatDateTime } from "../utils/date";
 import { entryDateTime, meditationEffectiveMinutes, trainingImpact, trainingReps, trainingVolume } from "../utils/trainingMath";
 
-export function AnalyticsPage() {
-  const { entries, skills } = useAppStore();
+export function AnalyticsPage({ onEditEntry }: { onEditEntry: (entry: Entry) => void }) {
+  const { entries, skills, deleteEntry } = useAppStore();
   const { dataLabel, locale, t } = useI18n();
   const [skillId, setSkillId] = useState(skills[0]?.id ?? "");
   const [granularity, setGranularity] = useState<HistoryGranularity>("day");
@@ -127,6 +128,7 @@ export function AnalyticsPage() {
                 <th>{t("log.entryType")}</th>
                 <th>{t("analytics.valueOrStrength")}</th>
                 <th>{t("log.notes")}</th>
+                <th>{t("common.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -140,9 +142,15 @@ export function AnalyticsPage() {
                       : `${entry.value?.toFixed(1) ?? "—"} ${dataLabel(skill.unit)}`}
                   </td>
                   <td>{entry.notes ? dataLabel(entry.notes) : "—"}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button type="button" className="ghost" onClick={() => onEditEntry(entry)}>{t("common.edit")}</button>
+                      <button type="button" className="ghost danger-text" onClick={() => window.confirm(t("log.deleteConfirm")) && deleteEntry(entry.id)}>{t("common.delete")}</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
-              {!windowEntries.length && <tr><td colSpan={4}>{t("analytics.noEvents")}</td></tr>}
+              {!windowEntries.length && <tr><td colSpan={5}>{t("analytics.noEvents")}</td></tr>}
             </tbody>
           </table>
         </div>

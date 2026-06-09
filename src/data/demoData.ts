@@ -1,4 +1,4 @@
-import type { AppData, LevelThreshold, Skill, ZoneBinding } from "../types";
+import type { AppData, BodyMetric, LevelThreshold, Skill, ZoneBinding } from "../types";
 import { todayIso } from "../utils/date";
 
 const levels = (...thresholds: number[]): LevelThreshold[] => [
@@ -137,6 +137,8 @@ export const demoSkills: Skill[] = [
   ),
 ];
 
+demoSkills.find((item) => item.id === "skill-focus")!.trainingMode = "meditation";
+
 function dateDaysAgo(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() - days);
@@ -153,8 +155,13 @@ const initialTests = demoSkills.map((item) => ({
   notes: "Initial level",
 }));
 
+export const demoBodyMetrics: BodyMetric[] = [
+  { id: "body-biceps", name: "Biceps circumference", unit: "cm", betterDirection: "higher", zoneBindings: bindings(["leftUpperArm", 1], ["rightUpperArm", 1]) },
+  { id: "body-waist", name: "Waist circumference", unit: "cm", betterDirection: "lower", zoneBindings: bindings(["abdomen", 1]) },
+];
+
 export const demoData: AppData = {
-  version: 3,
+  version: 6,
   skills: demoSkills,
   entries: [
     ...initialTests,
@@ -173,7 +180,16 @@ export const demoData: AppData = {
     { id: "entry-m2", type: "training", skillId: "skill-memory", date: dateDaysAgo(35), time: "09:00", trainingIntensity: 4, sets: [{ id: "m2-1", value: 10, reps: 3 }] },
     { id: "entry-5", type: "test", skillId: "skill-memory", date: dateDaysAgo(8), value: 14, unit: "words" },
     { id: "entry-f1", type: "test", skillId: "skill-focus", date: dateDaysAgo(45), value: 10, unit: "min" },
-    { id: "entry-f2", type: "training", skillId: "skill-focus", date: dateDaysAgo(20), time: "21:00", trainingIntensity: 3, sets: [{ id: "f2-1", value: 10, reps: 1 }] },
+    { id: "entry-f2", type: "training", skillId: "skill-focus", date: dateDaysAgo(20), time: "21:00", trainingIntensity: 6, meditationType: "sound", meditationQuality: 6, meditationDuration: 15 },
     { id: "entry-6", type: "test", skillId: "skill-focus", date: todayIso(), value: 20, unit: "min" },
+  ],
+  bodyMetrics: demoBodyMetrics,
+  bodyMeasurements: [
+    { id: "body-biceps-1", metricId: "body-biceps", date: dateDaysAgo(180), time: "08:00", value: 31.2 },
+    { id: "body-biceps-2", metricId: "body-biceps", date: dateDaysAgo(90), time: "08:00", value: 32.1 },
+    { id: "body-biceps-3", metricId: "body-biceps", date: dateDaysAgo(7), time: "08:00", value: 33 },
+    { id: "body-waist-1", metricId: "body-waist", date: dateDaysAgo(180), time: "08:00", value: 91 },
+    { id: "body-waist-2", metricId: "body-waist", date: dateDaysAgo(90), time: "08:00", value: 88.5 },
+    { id: "body-waist-3", metricId: "body-waist", date: dateDaysAgo(7), time: "08:00", value: 86 },
   ],
 };

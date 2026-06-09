@@ -1,5 +1,5 @@
 import type { Entry, Skill } from "../types";
-import { entryDateTime, trainingVolume } from "../utils/trainingMath";
+import { entryDateTime, trainingImpact } from "../utils/trainingMath";
 import { deriveSkillState } from "./deriveSkillState";
 
 export type HistoryGranularity = "day" | "month" | "year";
@@ -81,7 +81,7 @@ export function buildSkillHistory(
       trainingIntensity: intensities.length
         ? intensities.reduce((sum, value) => sum + value, 0) / intensities.length
         : null,
-      trainingVolume: trainings.reduce((sum, entry) => sum + trainingVolume(entry), 0),
+      trainingVolume: trainings.reduce((sum, entry) => sum + trainingImpact(entry), 0),
       trainingCount: trainings.length,
     });
   }

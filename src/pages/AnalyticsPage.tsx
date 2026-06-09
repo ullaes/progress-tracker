@@ -4,7 +4,7 @@ import { buildSkillHistory, historyWindowStart, type HistoryGranularity } from "
 import { useI18n } from "../i18n/I18nContext";
 import { useAppStore } from "../store/AppStore";
 import { formatDateTime } from "../utils/date";
-import { entryDateTime, trainingReps, trainingVolume } from "../utils/trainingMath";
+import { entryDateTime, meditationEffectiveMinutes, trainingImpact, trainingReps, trainingVolume } from "../utils/trainingMath";
 
 export function AnalyticsPage() {
   const { entries, skills } = useAppStore();
@@ -12,6 +12,7 @@ export function AnalyticsPage() {
   const [skillId, setSkillId] = useState(skills[0]?.id ?? "");
   const [granularity, setGranularity] = useState<HistoryGranularity>("day");
   const skill = skills.find((item) => item.id === skillId) ?? skills[0];
+  const isMeditation = skill?.trainingMode === "meditation";
   const points = useMemo(
     () => skill ? buildSkillHistory(skill, entries, granularity) : [],
     [entries, granularity, skill],
@@ -27,9 +28,12 @@ export function AnalyticsPage() {
     .map((entry) => entry.trainingIntensity)
     .filter((value): value is number => value !== undefined);
   const lastPoint = points.at(-1);
-  const totalTrainingVolume = trainings.reduce((sum, entry) => sum + trainingVolume(entry), 0);
+  const totalTrainingVolume = trainings.reduce((sum, entry) => sum + trainingImpact(entry), 0);
   const hasWeightedSets = trainings.some((entry) => entry.sets?.some((set) => set.value !== undefined));
   const trainingDetails = (entry: (typeof entries)[number]) => {
+    if (entry.meditationType) {
+      return `${t(`meditation.${entry.meditationType}`)} · ${t("meditation.duration")} ${entry.meditationDuration?.toFixed(0) ?? "—"} ${t("meditation.minutes")} · ${t("meditation.quality")} ${entry.meditationQuality ?? "—"} / 10 · ${t("meditation.effective")} ${meditationEffectiveMinutes(entry).toFixed(1)} ${t("meditation.minutes")}`;
+    }
     const strength = entry.trainingIntensity === undefined ? "—" : `${entry.trainingIntensity} / 10`;
     const setDetails = entry.sets?.map((set) => `${set.value === undefined ? "" : `${set.value} ${dataLabel(skill.unit)} × `}${set.reps}`).join("; ");
     return setDetails
@@ -82,9 +86,9 @@ export function AnalyticsPage() {
           <small>{t("analytics.selectedPeriod")}</small>
         </article>
         <article className="summary-card">
-          <span>{t("analytics.trainingVolume")}</span>
-          <strong>{totalTrainingVolume.toFixed(1)} {hasWeightedSets ? `${dataLabel(skill.unit)}×${t("log.repsShort")}` : t("log.repsShort")}</strong>
-          <small>{t("analytics.averageStrength")} {intensities.length ? `${(intensities.reduce((sum, value) => sum + value, 0) / intensities.length).toFixed(1)} / 10` : "—"}</small>
+          <span>{isMeditation ? t("meditation.effective") : t("analytics.trainingVolume")}</span>
+          <strong>{totalTrainingVolume.toFixed(1)} {isMeditation ? t("meditation.minutes") : hasWeightedSets ? `${dataLabel(skill.unit)}×${t("log.repsShort")}` : t("log.repsShort")}</strong>
+          <small>{isMeditation ? t("meditation.quality") : t("analytics.averageStrength")} {intensities.length ? `${(intensities.reduce((sum, value) => sum + value, 0) / intensities.length).toFixed(1)} / 10` : "—"}</small>
         </article>
         <article className="summary-card">
           <span>{t("analytics.tests")}</span>
@@ -102,10 +106,10 @@ export function AnalyticsPage() {
           <div className="chart-legend">
             <span className="legend-line">{t("analytics.currentValue")}</span>
             <span className="legend-dot">{t("analytics.testValue")}</span>
-            <span className="legend-bar">{t("analytics.trainingVolume")}</span>
+            <span className="legend-bar">{isMeditation ? t("meditation.effective") : t("analytics.trainingVolume")}</span>
           </div>
         </div>
-        <ProgressChart points={points} skill={skill} granularity={granularity} />
+        <ProgressChart points={points} skill={skill} granularity={granularity} trainingVolumeLabel={isMeditation ? t("meditation.effective") : undefined} />
       </section>
 
       <section className="panel">

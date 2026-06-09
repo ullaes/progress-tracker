@@ -27,8 +27,9 @@ export function GuidePage() {
         <a href="#statuses-guide">2. {t("guide.statusesTitle")}</a>
         <a href="#entry-guide">3. {t("guide.entryTitle")}</a>
         <a href="#skills-guide">4. {t("guide.skillsTitle")}</a>
-        <a href="#analytics-guide">5. {t("guide.analyticsTitle")}</a>
-        <a href="#workflow-guide">6. {t("guide.workflowTitle")}</a>
+        <a href="#measurements-guide">5. {t("guide.measurementsTitle")}</a>
+        <a href="#analytics-guide">6. {t("guide.analyticsTitle")}</a>
+        <a href="#workflow-guide">7. {t("guide.workflowTitle")}</a>
       </nav>
 
       <section id="dashboard-guide" className="guide-section">
@@ -90,6 +91,8 @@ export function GuidePage() {
             <article><strong>{t("log.test")}</strong><span>{t("guide.testExplanation")}</span></article>
           </div>
           <div className="guide-example"><strong>{t("log.sets")}: </strong>{t("guide.setsExplanation")}</div>
+          <div className="guide-example"><strong>{t("meditation.title")}: </strong>{t("guide.meditationExplanation")}</div>
+          <div className="guide-example"><strong>{t("guide.example")}</strong>{t("guide.meditationExample")}</div>
           <div className="guide-example"><strong>{t("guide.example")}</strong>{t("guide.entryExample")}</div>
         </div>
         <EntryIllustration labels={[t("guide.entryImage"), t("log.entryType"), t("log.skill"), t("log.trainingStrength"), t("log.save")]} />
@@ -119,6 +122,7 @@ export function GuidePage() {
             ["skills.category", "guide.fieldCategory"],
             ["skills.metric", "guide.fieldMetric"],
             ["skills.unit", "guide.fieldUnit"],
+            ["skills.trainingMode", "guide.fieldTrainingMode"],
             ["skills.graceDays", "guide.fieldGrace"],
             ["skills.halfLifeDays", "guide.fieldHalfLife"],
             ["skills.levels", "guide.fieldLevels"],
@@ -150,9 +154,22 @@ export function GuidePage() {
         </div>
       </section>
 
+      <section id="measurements-guide" className="guide-reference panel">
+        <span className="guide-step">05</span>
+        <h2>{t("guide.measurementsTitle")}</h2>
+        <p>{t("guide.measurementsText")}</p>
+        <ul>
+          <li>{t("guide.measurementsBullet1")}</li>
+          <li>{t("guide.measurementsBullet2")}</li>
+          <li>{t("guide.measurementsBullet3")}</li>
+          <li>{t("guide.measurementsBullet4")}</li>
+        </ul>
+        <div className="guide-example"><strong>{t("guide.example")}</strong>{t("guide.measurementsExample")}</div>
+      </section>
+
       <section id="analytics-guide" className="guide-section reverse">
         <div className="guide-copy">
-          <span className="guide-step">05</span>
+          <span className="guide-step">06</span>
           <h2>{t("guide.analyticsTitle")}</h2>
           <p>{t("guide.analyticsText")}</p>
           <ul>
@@ -166,7 +183,7 @@ export function GuidePage() {
       </section>
 
       <section id="workflow-guide" className="guide-workflow panel">
-        <span className="guide-step">06</span>
+        <span className="guide-step">07</span>
         <h2>{t("guide.workflowTitle")}</h2>
         <p>{t("guide.workflowText")}</p>
         <ol>

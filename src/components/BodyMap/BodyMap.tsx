@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "../../i18n/I18nContext";
-import type { DerivedSkillState, Skill, ZoneId } from "../../types";
+import type { BodyMeasurement, BodyMetric, DerivedSkillState, Skill, ZoneId } from "../../types";
+import { getZoneMeasurementProgress, zoneMeasurementColor } from "../../utils/bodyZoneMath";
 import { getZoneHealth, getZoneLevel, zoneHealthColor } from "../../utils/zoneMath";
 
 const paths: Record<ZoneId, string> = {
@@ -25,54 +26,52 @@ const paths: Record<ZoneId, string> = {
 type Props = {
   skills: Skill[];
   states: DerivedSkillState[];
+  metrics: BodyMetric[];
+  measurements: BodyMeasurement[];
+  mode: "training" | "measurements";
+  onModeChange: (mode: "training" | "measurements") => void;
   selectedZone: ZoneId | null;
   onSelectZone: (zoneId: ZoneId | null) => void;
 };
 
-export function BodyMap({ skills, states, selectedZone, onSelectZone }: Props) {
+export function BodyMap({ skills, states, metrics, measurements, mode, onModeChange, selectedZone, onSelectZone }: Props) {
   const { dataLabel, t, zoneName } = useI18n();
   const [hovered, setHovered] = useState<ZoneId | null>(null);
   const hoverLevel = hovered ? getZoneLevel(hovered, skills, states) : 0;
   const hoverHealth = hovered ? getZoneHealth(hovered, skills, states) : null;
-  const related = hovered ? skills.filter((skill) => skill.zoneBindings.some((item) => item.zoneId === hovered)) : [];
+  const hoverMeasurement = hovered ? getZoneMeasurementProgress(hovered, metrics, measurements) : null;
+  const relatedSkills = hovered ? skills.filter((skill) => skill.zoneBindings.some((item) => item.zoneId === hovered)) : [];
+  const relatedMetrics = hovered ? metrics.filter((metric) => (metric.zoneBindings ?? []).some((item) => item.zoneId === hovered)) : [];
 
   return (
     <div className="body-map-wrap">
+      <div className="body-map-switch period-switch" aria-label={t("body.mode")}>
+        <button className={mode === "training" ? "active" : "secondary"} onClick={() => onModeChange("training")}>{t("body.trainingMode")}</button>
+        <button className={mode === "measurements" ? "active" : "secondary"} onClick={() => onModeChange("measurements")}>{t("body.measurementMode")}</button>
+      </div>
       <svg className="body-map" viewBox="0 0 240 570" aria-label={t("body.aria")}>
         {Object.entries(paths).map(([zoneId, path]) => {
           const id = zoneId as ZoneId;
           const health = getZoneHealth(id, skills, states);
-          return (
-            <path
-              key={id}
-              d={path}
-              fill={zoneHealthColor(health.problemRatio)}
-              className={selectedZone === id ? "body-zone selected" : "body-zone"}
-              onMouseEnter={() => setHovered(id)}
-              onMouseLeave={() => setHovered(null)}
-              onClick={() => onSelectZone(selectedZone === id ? null : id)}
-            />
-          );
+          const measurement = getZoneMeasurementProgress(id, metrics, measurements);
+          return <path key={id} d={path} fill={mode === "training" ? zoneHealthColor(health.problemRatio) : zoneMeasurementColor(measurement.progressPercent)} className={selectedZone === id ? "body-zone selected" : "body-zone"} onMouseEnter={() => setHovered(id)} onMouseLeave={() => setHovered(null)} onClick={() => onSelectZone(selectedZone === id ? null : id)} />;
         })}
       </svg>
-      {hovered && (
-        <div className="zone-tooltip">
-          <strong>{zoneName(hovered)}</strong>
+      {hovered && <div className="zone-tooltip">
+        <strong>{zoneName(hovered)}</strong>
+        {mode === "training" ? <>
           <span>{t("body.averageLevel")} {hoverLevel.toFixed(1)}</span>
-          {hoverHealth && hoverHealth.relatedCount > 0 && (
-            <span>
-              {t("body.stableCount")} {hoverHealth.stableCount} · {t("body.decayingCount")} {hoverHealth.decayingCount} · {t("body.staleCount")} {hoverHealth.staleCount}
-            </span>
-          )}
-          <span>{related.length ? related.map((skill) => dataLabel(skill.name)).join(", ") : t("body.noSkills")}</span>
-        </div>
-      )}
-      <div className="body-health-legend" aria-label={t("body.healthLegend")}>
-        <span>{t("body.healthy")}</span>
-        <i />
-        <span>{t("body.atRisk")}</span>
+          {hoverHealth && hoverHealth.relatedCount > 0 && <span>{t("body.stableCount")} {hoverHealth.stableCount} / {t("body.decayingCount")} {hoverHealth.decayingCount} / {t("body.staleCount")} {hoverHealth.staleCount}</span>}
+          <span>{relatedSkills.length ? relatedSkills.map((skill) => dataLabel(skill.name)).join(", ") : t("body.noSkills")}</span>
+        </> : <>
+          <span>{t("body.measurementProgress")} {hoverMeasurement?.progressPercent === null ? "—" : `${hoverMeasurement?.progressPercent.toFixed(1)}%`}</span>
+          <span>{relatedMetrics.length ? relatedMetrics.map((metric) => dataLabel(metric.name)).join(", ") : t("body.noMeasurements")}</span>
+        </>}
+      </div>}
+      <div className={`body-health-legend ${mode === "measurements" ? "measurement-legend" : ""}`} aria-label={mode === "training" ? t("body.healthLegend") : t("body.measurementLegend")}>
+        <span>{mode === "training" ? t("body.healthy") : t("body.regress")}</span><i /><span>{mode === "training" ? t("body.atRisk") : t("body.progress")}</span>
       </div>
-      <p className="body-caption">{t("body.caption")}</p>
+      <p className="body-caption">{mode === "training" ? t("body.caption") : t("body.captionMeasurements")}</p>
     </div>
   );
 }

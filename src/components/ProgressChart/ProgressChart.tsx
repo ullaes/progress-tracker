@@ -30,10 +30,12 @@ export function ProgressChart({
   points,
   skill,
   granularity,
+  trainingVolumeLabel,
 }: {
   points: HistoryPoint[];
   skill: Skill;
   granularity: HistoryGranularity;
+  trainingVolumeLabel?: string;
 }) {
   const { dataLabel, locale, t } = useI18n();
   const values = points.flatMap((point) => [point.currentValue, point.latestTestValue]).filter((value): value is number => value !== null);
@@ -66,7 +68,7 @@ export function ProgressChart({
           );
         })}
         <text x={PADDING.left} y={18} className="chart-axis-text">{dataLabel(skill.unit)}</text>
-        <text x={WIDTH - PADDING.right} y={18} textAnchor="end" className="chart-axis-text">{t("analytics.trainingVolume")}</text>
+        <text x={WIDTH - PADDING.right} y={18} textAnchor="end" className="chart-axis-text">{trainingVolumeLabel ?? t("analytics.trainingVolume")}</text>
 
         {points.map((point, index) => {
           const x = xAt(index);
@@ -83,7 +85,7 @@ export function ProgressChart({
                   rx="3"
                   className="training-bar"
                 >
-                  <title>{`${label}: ${t("analytics.trainingVolume")} ${point.trainingVolume.toFixed(1)}, ${t("analytics.trainings")} ${point.trainingCount}`}</title>
+                  <title>{`${label}: ${trainingVolumeLabel ?? t("analytics.trainingVolume")} ${point.trainingVolume.toFixed(1)}, ${t("analytics.trainings")} ${point.trainingCount}`}</title>
                 </rect>
               )}
               {point.latestTestValue !== null && (

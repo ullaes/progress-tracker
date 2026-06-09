@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { demoData } from "../data/demoData";
-import type { AppData, Entry, Skill } from "../types";
+import type { AppData, BodyMeasurement, BodyMetric, Entry, Skill } from "../types";
 
 const STORAGE_KEY = "progress-tracker-data-v1";
 
@@ -8,18 +8,37 @@ type Store = AppData & {
   saveSkill: (skill: Skill) => void;
   deleteSkill: (skillId: string) => void;
   addEntry: (entry: Entry) => void;
+  addBodyMetric: (metric: BodyMetric) => void;
+  saveBodyMetric: (metric: BodyMetric) => void;
+  addBodyMeasurement: (measurement: BodyMeasurement) => void;
+  deleteBodyMeasurement: (measurementId: string) => void;
   importData: (data: AppData) => void;
   resetDemo: () => void;
 };
 
 const StoreContext = createContext<Store | null>(null);
 
+function normalizeBodyMetrics(metrics: BodyMetric[]): BodyMetric[] {
+  return metrics.map((metric) => ({
+    ...metric,
+    zoneBindings: metric.zoneBindings ?? demoData.bodyMetrics.find((item) => item.id === metric.id)?.zoneBindings ?? [],
+  }));
+}
+
 function loadData(): AppData {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return demoData;
-    const parsed = JSON.parse(saved) as AppData & { version?: number };
-    if ((parsed.version ?? 1) >= demoData.version) return parsed;
+    const parsed = JSON.parse(saved) as Partial<AppData> & Pick<AppData, "skills" | "entries"> & { version?: number };
+    if (
+      parsed.version === demoData.version
+      && Array.isArray(parsed.bodyMetrics)
+      && Array.isArray(parsed.bodyMeasurements)
+    ) {
+      const normalized = { ...parsed, bodyMetrics: normalizeBodyMetrics(parsed.bodyMetrics) } as AppData;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      return normalized;
+    }
     const existingSkillIds = new Set(parsed.skills.map((skill) => skill.id));
     const existingEntryIds = new Set(parsed.entries.map((entry) => entry.id));
     const migrated: AppData = {
@@ -27,6 +46,7 @@ function loadData(): AppData {
       skills: [
         ...parsed.skills.map((skill) => ({
           ...skill,
+          ...(skill.trainingMode === undefined && skill.id === "skill-focus" ? { trainingMode: "meditation" as const } : {}),
           levels: skill.levels.some((level) => level.level === 0)
             ? skill.levels
             : [{ level: 0, threshold: 0 }, ...skill.levels],
@@ -40,6 +60,8 @@ function loadData(): AppData {
         })),
         ...demoData.entries.filter((entry) => !existingEntryIds.has(entry.id)),
       ],
+      bodyMetrics: normalizeBodyMetrics(parsed.bodyMetrics ?? demoData.bodyMetrics),
+      bodyMeasurements: parsed.bodyMeasurements ?? [],
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
     return migrated;
@@ -76,7 +98,17 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           entries: current.entries.filter((item) => item.skillId !== skillId),
         })),
       addEntry: (entry) => update((current) => ({ ...current, entries: [...current.entries, entry] })),
-      importData: (imported) => update(() => imported),
+      addBodyMetric: (metric) => update((current) => ({ ...current, bodyMetrics: [...current.bodyMetrics, { ...metric, zoneBindings: metric.zoneBindings ?? [] }] })),
+      saveBodyMetric: (metric) => update((current) => ({
+        ...current,
+        bodyMetrics: current.bodyMetrics.map((item) => item.id === metric.id ? { ...metric, zoneBindings: metric.zoneBindings ?? [] } : item),
+      })),
+      addBodyMeasurement: (measurement) => update((current) => ({ ...current, bodyMeasurements: [...current.bodyMeasurements, measurement] })),
+      deleteBodyMeasurement: (measurementId) => update((current) => ({
+        ...current,
+        bodyMeasurements: current.bodyMeasurements.filter((measurement) => measurement.id !== measurementId),
+      })),
+      importData: (imported) => update(() => ({ ...imported, bodyMetrics: normalizeBodyMetrics(imported.bodyMetrics) })),
       resetDemo: () => update(() => demoData),
     }),
     [data],

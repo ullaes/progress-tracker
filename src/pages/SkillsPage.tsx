@@ -41,7 +41,7 @@ function parseLevels(text: string) {
 }
 
 export function SkillsPage({ goDashboard }: { goDashboard: () => void }) {
-  const { entries, version, skills, saveSkill, deleteSkill, importData } = useAppStore();
+  const { entries, version, skills, bodyMetrics, bodyMeasurements, saveSkill, deleteSkill, importData } = useAppStore();
   const { categoryName, dataLabel, t, zoneName } = useI18n();
   const [editing, setEditing] = useState<Skill>(() => skills[0] ?? emptySkill());
   const [levelsText, setLevelsText] = useState(serializeLevels(editing));
@@ -80,7 +80,7 @@ export function SkillsPage({ goDashboard }: { goDashboard: () => void }) {
   };
 
   const exportData = () => {
-    const blob = new Blob([serializeAppDataBackup({ version, skills, entries })], { type: "application/json" });
+    const blob = new Blob([serializeAppDataBackup({ version, skills, entries, bodyMetrics, bodyMeasurements })], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -150,6 +150,13 @@ export function SkillsPage({ goDashboard }: { goDashboard: () => void }) {
         </label>
         <label>{t("skills.metric")}<input value={editing.metricName} onChange={(event) => setEditing({ ...editing, metricName: event.target.value })} required /></label>
         <label>{t("skills.unit")}<input value={editing.unit} onChange={(event) => setEditing({ ...editing, unit: event.target.value })} required /></label>
+        <label>
+          {t("skills.trainingMode")}
+          <select value={editing.trainingMode ?? "standard"} onChange={(event) => setEditing({ ...editing, trainingMode: event.target.value as Skill["trainingMode"] })}>
+            <option value="standard">{t("skills.trainingModeStandard")}</option>
+            <option value="meditation">{t("skills.trainingModeMeditation")}</option>
+          </select>
+        </label>
         <div className="two-cols">
           <label>{t("skills.graceDays")}<input type="number" min="0" value={editing.graceDays} onChange={(event) => setEditing({ ...editing, graceDays: Number(event.target.value) })} /></label>
           <label>{t("skills.halfLifeDays")}<input type="number" min="1" value={editing.halfLifeDays} onChange={(event) => setEditing({ ...editing, halfLifeDays: Number(event.target.value) })} /></label>

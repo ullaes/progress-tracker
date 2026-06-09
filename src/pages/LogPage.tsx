@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "../i18n/I18nContext";
 import { useAppStore } from "../store/AppStore";
-import type { TrainingSet } from "../types";
+import type { Entry, TrainingSet } from "../types";
 import { todayIso } from "../utils/date";
-import { setVolume } from "../utils/trainingMath";
+import { MEDITATION_TYPE_MULTIPLIERS, setVolume } from "../utils/trainingMath";
 
 type EntryType = "training" | "test";
 type EditableSet = { id: string; value: string; reps: string };
@@ -30,9 +30,13 @@ export function LogPage({
   const [time, setTime] = useState(currentTime());
   const [value, setValue] = useState("");
   const [trainingIntensity, setTrainingIntensity] = useState("5");
+  const [meditationType, setMeditationType] = useState<NonNullable<Entry["meditationType"]>>("visual");
+  const [meditationQuality, setMeditationQuality] = useState("7");
+  const [meditationDuration, setMeditationDuration] = useState("10");
   const [sets, setSets] = useState<EditableSet[]>([newSet()]);
   const [notes, setNotes] = useState("");
   const selectedSkill = skills.find((skill) => skill.id === skillId);
+  const isMeditation = selectedSkill?.trainingMode === "meditation";
 
   const parsedSets = useMemo<TrainingSet[]>(
     () => sets
@@ -47,6 +51,9 @@ export function LogPage({
   const totalReps = parsedSets.reduce((sum, set) => sum + set.reps, 0);
   const totalVolume = parsedSets.reduce((sum, set) => sum + setVolume(set), 0);
   const hasSetValues = parsedSets.some((set) => set.value !== undefined);
+  const effectiveMeditationMinutes = Number(meditationDuration)
+    * (Number(meditationQuality) / 10)
+    * MEDITATION_TYPE_MULTIPLIERS[meditationType];
 
   const updateSet = (id: string, field: "value" | "reps", nextValue: string) => {
     setSets((current) => current.map((set) => set.id === id ? { ...set, [field]: nextValue } : set));
@@ -56,7 +63,8 @@ export function LogPage({
     event.preventDefault();
     if (!selectedSkill) return;
     if (type === "test" && value.trim() === "") return;
-    if (type === "training" && !parsedSets.length) return;
+    if (type === "training" && !isMeditation && !parsedSets.length) return;
+    if (type === "training" && isMeditation && (!Number.isFinite(Number(meditationDuration)) || Number(meditationDuration) <= 0)) return;
     addEntry({
       id: crypto.randomUUID(),
       type,
@@ -64,8 +72,11 @@ export function LogPage({
       date,
       time,
       value: type === "test" ? Number(value) : undefined,
-      trainingIntensity: type === "training" ? Number(trainingIntensity) : undefined,
-      sets: type === "training" ? parsedSets : undefined,
+      trainingIntensity: type === "training" ? Number(isMeditation ? meditationQuality : trainingIntensity) : undefined,
+      sets: type === "training" && !isMeditation ? parsedSets : undefined,
+      meditationType: type === "training" && isMeditation ? meditationType : undefined,
+      meditationQuality: type === "training" && isMeditation ? Number(meditationQuality) : undefined,
+      meditationDuration: type === "training" && isMeditation ? Number(meditationDuration) : undefined,
       unit: selectedSkill.unit,
       notes: notes.trim() || undefined,
     });
@@ -102,6 +113,44 @@ export function LogPage({
         </label>
 
         {type === "training" ? (
+          isMeditation ? (
+            <section className="sets-editor meditation-editor">
+              <div className="sets-heading">
+                <div>
+                  <strong>{t("meditation.title")}</strong>
+                  <small>{t("meditation.hint")}</small>
+                </div>
+              </div>
+              <label>
+                {t("meditation.type")}
+                <select value={meditationType} onChange={(event) => setMeditationType(event.target.value as NonNullable<Entry["meditationType"]>)}>
+                  <option value="visual">{t("meditation.visual")}</option>
+                  <option value="sound">{t("meditation.sound")}</option>
+                  <option value="mentalImage">{t("meditation.mentalImage")}</option>
+                  <option value="emptiness">{t("meditation.emptiness")}</option>
+                </select>
+                <small>{t("meditation.typeHint")}</small>
+              </label>
+              <label>
+                {t("meditation.duration")}
+                <div className="inline-field">
+                  <input type="number" min="1" step="1" value={meditationDuration} onChange={(event) => setMeditationDuration(event.target.value)} required />
+                  <span>{t("meditation.minutes")}</span>
+                </div>
+              </label>
+              <label>
+                {t("meditation.quality")}
+                <div className="intensity-field">
+                  <input type="range" min="1" max="10" value={meditationQuality} onChange={(event) => setMeditationQuality(event.target.value)} />
+                  <strong>{meditationQuality} / 10</strong>
+                </div>
+                <small>{t("meditation.qualityHint")}</small>
+              </label>
+              <div className="session-totals">
+                <span>{t("meditation.effective")}: <strong>{Number.isFinite(effectiveMeditationMinutes) ? effectiveMeditationMinutes.toFixed(1) : "—"} {t("meditation.minutes")}</strong></span>
+              </div>
+            </section>
+          ) : (
           <>
             <label>
               {t("log.trainingStrength")}
@@ -172,6 +221,7 @@ export function LogPage({
               </div>
             </section>
           </>
+          )
         ) : (
           <label>
             {t("log.measuredValue")}

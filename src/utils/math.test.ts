@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { deriveSkillState } from "../domain/deriveSkillState";
 import { buildSkillHistory } from "../domain/history";
+import { buildBodyMeasurementHistory } from "../domain/bodyMeasurementHistory";
 import { demoData, demoSkills } from "../data/demoData";
-import type { Skill } from "../types";
+import type { BodyMetric, Skill } from "../types";
 import { decayStatus, decayValue } from "./decay";
 import { fractionalLevel, integerLevel } from "./levelMath";
 import { backupFileName, parseAppDataBackup, serializeAppDataBackup } from "./dataTransfer";
+import { getZoneMeasurementProgress, getZoneTrainingMeasurementCorrelation, zoneMeasurementColor } from "./bodyZoneMath";
 import { getZoneHealth, getZoneLevel, zoneHealthColor } from "./zoneMath";
-import { entryDateTime, trainingReps, trainingVolume } from "./trainingMath";
+import { entryDateTime, meditationEffectiveMinutes, trainingImpact, trainingReps, trainingVolume } from "./trainingMath";
 
 const levels = [
   { level: 1, threshold: 1 },
@@ -141,6 +143,28 @@ describe("training sessions", () => {
     expect(trainingVolume(morning)).toBe(270);
     expect(trainingVolume(evening)).toBe(30);
   });
+
+  it("weights meditation duration by concentration quality and type", () => {
+    const focused = {
+      id: "focused",
+      type: "training" as const,
+      skillId: "skill-focus",
+      date: "2026-06-08",
+      meditationType: "emptiness" as const,
+      meditationQuality: 9,
+      meditationDuration: 10,
+    };
+    const distracted = {
+      ...focused,
+      id: "distracted",
+      meditationType: "visual" as const,
+      meditationQuality: 4,
+      meditationDuration: 15,
+    };
+    expect(meditationEffectiveMinutes(focused)).toBe(9);
+    expect(meditationEffectiveMinutes(distracted)).toBeCloseTo(4.2);
+    expect(trainingImpact(focused)).toBeGreaterThan(trainingImpact(distracted));
+  });
 });
 
 describe("starter data", () => {
@@ -173,5 +197,101 @@ describe("data backup", () => {
       skills: [],
       entries: [{ id: "entry", type: "training", skillId: "missing", date: "2026-06-07" }],
     }))).toBeNull();
+    expect(parseAppDataBackup(JSON.stringify({
+      ...demoData,
+      entries: [{ id: "incomplete-meditation", type: "training", skillId: "skill-focus", date: "2026-06-08", meditationType: "visual" }],
+    }))).toBeNull();
+  });
+
+  it("upgrades backups without body measurements", () => {
+    const restored = parseAppDataBackup(JSON.stringify({
+      version: 3,
+      skills: demoData.skills,
+      entries: demoData.entries,
+    }));
+    expect(restored?.version).toBe(6);
+    expect(restored?.bodyMetrics.length).toBeGreaterThan(0);
+    expect(restored?.bodyMeasurements).toEqual([]);
+  });
+
+  it("adds zone bindings to older body metrics", () => {
+    const restored = parseAppDataBackup(JSON.stringify({
+      ...demoData,
+      version: 5,
+      bodyMetrics: demoData.bodyMetrics.map(({ zoneBindings: _zoneBindings, ...metric }) => metric),
+    }));
+    expect(restored?.bodyMetrics.find((metric) => metric.id === "body-biceps")?.zoneBindings.length).toBe(2);
+  });
+});
+
+describe("body zone measurement progress", () => {
+  const waistMetric = {
+    id: "waist",
+    name: "Waist",
+    unit: "cm",
+    betterDirection: "lower" as const,
+    zoneBindings: [{ zoneId: "abdomen" as const, weight: 1 }],
+  };
+
+  it("treats a smaller lower-is-better measurement as progress", () => {
+    const progress = getZoneMeasurementProgress("abdomen", [waistMetric], [
+      { id: "1", metricId: "waist", date: "2026-01-01", value: 100 },
+      { id: "2", metricId: "waist", date: "2026-03-01", value: 90 },
+    ]);
+    expect(progress.progressPercent).toBe(10);
+    expect(zoneMeasurementColor(progress.progressPercent)).toBe("hsl(120 58% 43%)");
+    expect(zoneMeasurementColor(-10)).toBe("hsl(0 58% 43%)");
+  });
+
+  it("correlates linked monthly training impact and directed measurement changes", () => {
+    const linkedSkill = { ...skill, zoneBindings: [{ zoneId: "abdomen" as const, weight: 1 }] };
+    const correlation = getZoneTrainingMeasurementCorrelation(
+      "abdomen",
+      [linkedSkill],
+      [
+        { id: "t1", type: "training", skillId: linkedSkill.id, date: "2026-02-01", sets: [{ id: "s1", reps: 1 }] },
+        { id: "t2", type: "training", skillId: linkedSkill.id, date: "2026-03-01", sets: [{ id: "s2", reps: 2 }] },
+        { id: "t3", type: "training", skillId: linkedSkill.id, date: "2026-04-01", sets: [{ id: "s3", reps: 3 }] },
+      ],
+      [waistMetric],
+      [
+        { id: "m0", metricId: "waist", date: "2026-01-01", value: 100 },
+        { id: "m1", metricId: "waist", date: "2026-02-01", value: 99 },
+        { id: "m2", metricId: "waist", date: "2026-03-01", value: 97.02 },
+        { id: "m3", metricId: "waist", date: "2026-04-01", value: 94.1094 },
+      ],
+    );
+    expect(correlation.sampleCount).toBe(3);
+    expect(correlation.coefficient).toBeCloseTo(1);
+  });
+
+  it("handles legacy metrics without zone bindings without crashing", () => {
+    const legacyMetric = {
+      id: "legacy",
+      name: "Legacy",
+      unit: "cm",
+      betterDirection: "higher",
+    } as BodyMetric;
+    expect(getZoneMeasurementProgress("abdomen", [legacyMetric], []).progressPercent).toBeNull();
+    expect(getZoneTrainingMeasurementCorrelation("abdomen", [], [], [legacyMetric], [])).toEqual({
+      coefficient: null,
+      sampleCount: 0,
+    });
+  });
+});
+
+describe("body measurement history", () => {
+  it("keeps the latest same-day measurement and filters the selected window", () => {
+    const points = buildBodyMeasurementHistory(
+      "waist",
+      [
+        { id: "old", metricId: "waist", date: "2025-01-01", value: 95 },
+        { id: "morning", metricId: "waist", date: "2026-06-07", time: "08:00", value: 88 },
+        { id: "evening", metricId: "waist", date: "2026-06-07", time: "18:00", value: 87.5 },
+      ],
+      "day",
+      new Date("2026-06-08T12:00:00"),
+    );
+    expect(points).toEqual([{ date: "2026-06-07", value: 87.5 }]);
   });
 });

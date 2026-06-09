@@ -1,6 +1,7 @@
-import { ZONE_IDS, type AppData, type Entry, type Skill, type TrainingSet, type ZoneBinding } from "../types";
+import { demoBodyMetrics } from "../data/demoData";
+import { ZONE_IDS, type AppData, type BodyMeasurement, type BodyMetric, type Entry, type Skill, type TrainingSet, type ZoneBinding } from "../types";
 
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 6;
 const zoneIds = new Set<string>(ZONE_IDS);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -40,6 +41,7 @@ function isSkill(value: unknown): value is Skill {
     && isString(value.metricName)
     && isString(value.unit)
     && value.betterDirection === "higher"
+    && (value.trainingMode === undefined || value.trainingMode === "standard" || value.trainingMode === "meditation")
     && Array.isArray(value.zoneBindings)
     && value.zoneBindings.every(isZoneBinding)
     && isFiniteNumber(value.graceDays)
@@ -69,8 +71,41 @@ function isEntry(value: unknown): value is Entry {
     && isOptionalString(value.time)
     && isOptionalNumber(value.value)
     && isOptionalNumber(value.trainingIntensity)
+    && (value.meditationType === undefined || value.meditationType === "visual" || value.meditationType === "sound" || value.meditationType === "mentalImage" || value.meditationType === "emptiness")
+    && (value.meditationQuality === undefined || (isFiniteNumber(value.meditationQuality) && value.meditationQuality >= 1 && value.meditationQuality <= 10))
+    && (value.meditationDuration === undefined || (isFiniteNumber(value.meditationDuration) && value.meditationDuration > 0))
+    && (
+      (value.meditationType === undefined && value.meditationQuality === undefined && value.meditationDuration === undefined)
+      || (
+        value.meditationType !== undefined
+        && isFiniteNumber(value.meditationQuality)
+        && value.meditationQuality >= 1
+        && value.meditationQuality <= 10
+        && isFiniteNumber(value.meditationDuration)
+        && value.meditationDuration > 0
+      )
+    )
     && (value.sets === undefined || (Array.isArray(value.sets) && value.sets.every(isTrainingSet)))
     && isOptionalString(value.unit)
+    && isOptionalString(value.notes);
+}
+
+function isBodyMetric(value: unknown): value is BodyMetric {
+  return isRecord(value)
+    && isString(value.id)
+    && isString(value.name)
+    && isString(value.unit)
+    && (value.betterDirection === "higher" || value.betterDirection === "lower")
+    && (value.zoneBindings === undefined || (Array.isArray(value.zoneBindings) && value.zoneBindings.every(isZoneBinding)));
+}
+
+function isBodyMeasurement(value: unknown): value is BodyMeasurement {
+  return isRecord(value)
+    && isString(value.id)
+    && isString(value.metricId)
+    && isString(value.date)
+    && isOptionalString(value.time)
+    && isFiniteNumber(value.value)
     && isOptionalString(value.notes);
 }
 
@@ -79,19 +114,33 @@ export function parseAppDataBackup(text: string): AppData | null {
     const value: unknown = JSON.parse(text);
     if (!isRecord(value) || !Array.isArray(value.skills) || !Array.isArray(value.entries)) return null;
     if (!value.skills.every(isSkill) || !value.entries.every(isEntry)) return null;
+    const rawBodyMetrics = value.bodyMetrics === undefined ? demoBodyMetrics : value.bodyMetrics;
+    const bodyMeasurements = value.bodyMeasurements === undefined ? [] : value.bodyMeasurements;
+    if (!Array.isArray(rawBodyMetrics) || !Array.isArray(bodyMeasurements)) return null;
+    if (!rawBodyMetrics.every(isBodyMetric) || !bodyMeasurements.every(isBodyMeasurement)) return null;
+    const bodyMetrics = rawBodyMetrics.map((metric) => ({
+      ...metric,
+      zoneBindings: metric.zoneBindings ?? demoBodyMetrics.find((item) => item.id === metric.id)?.zoneBindings ?? [],
+    }));
 
     const skills = value.skills.map((skill) => ({
       ...skill,
+      ...(skill.trainingMode === undefined && skill.id === "skill-focus" ? { trainingMode: "meditation" as const } : {}),
       levels: skill.levels.some((level) => level.level === 0)
         ? skill.levels
         : [{ level: 0, threshold: 0 }, ...skill.levels],
     }));
     const skillIds = new Set(skills.map((skill) => skill.id));
     const entryIds = new Set(value.entries.map((entry) => entry.id));
+    const bodyMetricIds = new Set(bodyMetrics.map((metric) => metric.id));
+    const bodyMeasurementIds = new Set(bodyMeasurements.map((measurement) => measurement.id));
     if (
       skillIds.size !== skills.length
       || entryIds.size !== value.entries.length
       || value.entries.some((entry) => !skillIds.has(entry.skillId))
+      || bodyMetricIds.size !== bodyMetrics.length
+      || bodyMeasurementIds.size !== bodyMeasurements.length
+      || bodyMeasurements.some((measurement) => !bodyMetricIds.has(measurement.metricId))
     ) return null;
 
     return {
@@ -100,6 +149,11 @@ export function parseAppDataBackup(text: string): AppData | null {
       entries: value.entries.map((entry) => ({
         ...entry,
         time: entry.time ?? "12:00",
+      })),
+      bodyMetrics,
+      bodyMeasurements: bodyMeasurements.map((measurement) => ({
+        ...measurement,
+        time: measurement.time ?? "12:00",
       })),
     };
   } catch {

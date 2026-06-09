@@ -36,6 +36,7 @@ export type Skill = {
   metricName: string;
   unit: string;
   betterDirection: "higher";
+  trainingMode?: "standard" | "meditation";
   zoneBindings: ZoneBinding[];
   graceDays: number;
   halfLifeDays: number;
@@ -57,8 +58,28 @@ export type Entry = {
   time?: string;
   value?: number;
   trainingIntensity?: number;
+  meditationType?: "visual" | "sound" | "mentalImage" | "emptiness";
+  meditationQuality?: number;
+  meditationDuration?: number;
   sets?: TrainingSet[];
   unit?: string;
+  notes?: string;
+};
+
+export type BodyMetric = {
+  id: string;
+  name: string;
+  unit: string;
+  betterDirection: "higher" | "lower";
+  zoneBindings: ZoneBinding[];
+};
+
+export type BodyMeasurement = {
+  id: string;
+  metricId: string;
+  date: string;
+  time?: string;
+  value: number;
   notes?: string;
 };
 
@@ -78,7 +99,9 @@ export type DerivedSkillState = {
 };
 
 export type AppData = {
-  version: 3;
+  version: 6;
   skills: Skill[];
   entries: Entry[];
+  bodyMetrics: BodyMetric[];
+  bodyMeasurements: BodyMeasurement[];
 };

@@ -84,6 +84,7 @@ button.wide { width: 100%; }
 .skill-list { display: grid; gap: 12px; margin: 20px 0; }
 
 .body-map-wrap { position: relative; display: flex; flex-direction: column; align-items: center; padding: 22px; min-height: 690px; }
+.body-map-switch { justify-content: center; width: 100%; }
 .body-map { width: 100%; max-width: 360px; height: 610px; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .36)); }
 .body-zone { stroke: #aeb6be; stroke-width: 1.6; stroke-linejoin: round; transition: fill .2s, filter .2s, stroke .2s; cursor: pointer; }
 .body-zone:hover, .body-zone.selected { stroke: #fff; stroke-width: 2.5; filter: brightness(1.35) drop-shadow(0 0 8px currentColor); }
@@ -119,6 +120,15 @@ button.wide { width: 100%; }
   border-radius: 999px;
   background: linear-gradient(90deg, hsl(120 58% 43%), hsl(60 58% 43%), hsl(0 58% 43%));
 }
+.body-health-legend.measurement-legend i { background: linear-gradient(90deg, hsl(0 58% 43%), hsl(60 58% 43%), hsl(120 58% 43%)); }
+.measurement-dashboard-card { display: grid; gap: 6px; padding: 17px; border: 1px solid #2c3744; border-radius: 13px; background: #121820; }
+.measurement-dashboard-card span { color: #9fc8b8; font-size: 1.45rem; font-weight: 800; }
+.measurement-dashboard-card small { color: #8493a5; }
+.correlation-panel { margin-top: 24px; }
+.correlation-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 0; }
+.correlation-grid article { display: grid; gap: 7px; padding: 14px; border: 1px solid #2c3744; border-radius: 12px; background: #121820; }
+.correlation-grid span { color: #9fc8b8; font-size: 1.45rem; font-weight: 800; }
+.correlation-grid small, .correlation-warning { color: #8493a5; }
 
 .skill-card { padding: 17px; border: 1px solid #2c3744; border-radius: 13px; background: #121820; }
 .status { padding: 5px 8px; border-radius: 999px; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
@@ -160,6 +170,7 @@ label small { color: #788797; font-weight: 500; }
   border-radius: 12px;
   background: #0f151c;
 }
+.meditation-editor { border-color: #405c66; background: linear-gradient(145deg, #101820, #121b22); }
 .sets-heading { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
 .sets-heading > div { display: grid; gap: 5px; }
 .sets-heading small { color: #788797; }
@@ -259,6 +270,18 @@ label small { color: #788797; font-weight: 500; }
 .training-bar { fill: rgba(91, 122, 181, .5); }
 .test-point { fill: #e8c26b; stroke: #111720; stroke-width: 2; }
 .progress-line { fill: none; stroke: #9fc8b8; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.measurement-line { fill: none; stroke: #84b8d4; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.measurement-point { fill: #e8c26b; stroke: #111720; stroke-width: 2; }
+.measurements-summary { grid-template-columns: repeat(3, 1fr); }
+.positive-progress { color: #9fc8b8; }
+.negative-progress { color: #e09b92; }
+.measurements-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px; }
+.measurements-grid .form { margin-top: 0; align-content: start; }
+.measurement-history { margin-top: 24px; }
+.measurement-bindings { display: grid; gap: 14px; margin-bottom: 24px; }
+.measurement-bindings p { margin: 0; }
+.binding-controls select { min-width: 180px; }
+.binding-controls input { max-width: 100px; }
 .event-table-wrap { overflow-x: auto; margin-top: 18px; }
 .event-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .event-table th, .event-table td { padding: 12px; border-bottom: 1px solid #26303d; text-align: left; }
@@ -478,7 +501,7 @@ label small { color: #788797; font-weight: 500; }
 
 @media (max-width: 900px) {
   .hero { align-items: start; flex-direction: column; }
-  .dashboard-grid, .skills-page { grid-template-columns: 1fr; }
+  .dashboard-grid, .skills-page, .measurements-grid { grid-template-columns: 1fr; }
   .guide-section { grid-template-columns: 1fr; }
   .guide-status-grid { grid-template-columns: 1fr; }
   .guide-metric-grid { grid-template-columns: 1fr; }
@@ -486,7 +509,8 @@ label small { color: #788797; font-weight: 500; }
   .guide-filled-example { grid-template-columns: 1fr; }
   .guide-section.reverse .guide-copy, .guide-section.reverse .guide-illustration { order: initial; }
   .guide-workflow ol { grid-template-columns: repeat(2, 1fr); }
-  .analytics-summary { grid-template-columns: repeat(2, 1fr); }
+  .analytics-summary, .measurements-summary { grid-template-columns: repeat(2, 1fr); }
+  .correlation-grid { grid-template-columns: repeat(2, 1fr); }
   .body-map-wrap { min-height: 620px; }
   .body-map { height: 540px; }
 }
@@ -497,7 +521,8 @@ label small { color: #788797; font-weight: 500; }
   .top-nav button { flex: 1; padding-inline: 6px; font-size: .76rem; }
   .language-select { width: 100%; margin-left: 0; justify-content: space-between; }
   .skill-stats, .two-cols { grid-template-columns: 1fr; }
-  .analytics-summary { grid-template-columns: 1fr; }
+  .analytics-summary, .measurements-summary { grid-template-columns: 1fr; }
+  .correlation-grid { grid-template-columns: 1fr; }
   .analytics-controls { min-width: 0; width: 100%; }
   .chart-heading { flex-direction: column; }
   .guide-compare, .guide-workflow ol { grid-template-columns: 1fr; }

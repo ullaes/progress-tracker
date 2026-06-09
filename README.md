@@ -25,6 +25,9 @@ npm test
 - Explicit level 0 baseline and starter exercises for major muscle groups, Kegel, focus and memory
 - Training and test entry logging
 - Multiple same-day training sessions with time, per-set value/weight, repetitions and calculated volume
+- Independent body measurements with custom metrics, progress direction, history and charts
+- Body-zone measurement bindings, switchable training/measurement body map and zone correlation
+- Meditation-specific logging with practice type, concentration quality and effective minutes
 - Peak, current and fractional level calculations
 - Exponential inactivity decay
 - Skill creation, editing, deletion and body-zone bindings

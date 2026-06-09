@@ -13,8 +13,18 @@ function currentTime(): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
+function emptyBodyMetric(): BodyMetric {
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    unit: "cm",
+    betterDirection: "higher",
+    zoneBindings: [{ zoneId: "abdomen", weight: 1 }],
+  };
+}
+
 export function BodyMeasurementsPage() {
-  const { bodyMetrics, bodyMeasurements, addBodyMetric, saveBodyMetric, addBodyMeasurement, deleteBodyMeasurement } = useAppStore();
+  const { bodyMetrics, bodyMeasurements, saveBodyMetric, deleteBodyMetric, addBodyMeasurement, deleteBodyMeasurement } = useAppStore();
   const { dataLabel, locale, t, zoneName } = useI18n();
   const [metricId, setMetricId] = useState(bodyMetrics[0]?.id ?? "");
   const [granularity, setGranularity] = useState<HistoryGranularity>("month");
@@ -22,9 +32,7 @@ export function BodyMeasurementsPage() {
   const [time, setTime] = useState(currentTime());
   const [value, setValue] = useState("");
   const [notes, setNotes] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newUnit, setNewUnit] = useState("cm");
-  const [newDirection, setNewDirection] = useState<BodyMetric["betterDirection"]>("higher");
+  const [editingMetric, setEditingMetric] = useState<BodyMetric>(() => bodyMetrics[0] ?? emptyBodyMetric());
   const [bindingZone, setBindingZone] = useState<ZoneId>("abdomen");
   const [bindingWeight, setBindingWeight] = useState("1");
   const metric = bodyMetrics.find((item) => item.id === metricId) ?? bodyMetrics[0];
@@ -61,35 +69,67 @@ export function BodyMeasurementsPage() {
 
   const submitMetric = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!newName.trim() || !newUnit.trim()) return;
-    const weight = Math.min(1, Math.max(0, Number(bindingWeight)));
-    if (!Number.isFinite(weight)) return;
-    const created: BodyMetric = {
-      id: crypto.randomUUID(),
-      name: newName.trim(),
-      unit: newUnit.trim(),
-      betterDirection: newDirection,
-      zoneBindings: [{ zoneId: bindingZone, weight }],
-    };
-    addBodyMetric(created);
-    setMetricId(created.id);
-    setNewName("");
+    if (!editingMetric.name.trim() || !editingMetric.unit.trim()) return;
+    const saved = { ...editingMetric, name: editingMetric.name.trim(), unit: editingMetric.unit.trim() };
+    saveBodyMetric(saved);
+    setMetricId(saved.id);
+    setEditingMetric(saved);
+  };
+
+  const startEditMetric = (selected: BodyMetric) => {
+    setMetricId(selected.id);
+    setEditingMetric(selected);
+  };
+
+  const removeSelectedMetric = () => {
+    if (!window.confirm(t("measurements.deleteMetricConfirm"))) return;
+    deleteBodyMetric(editingMetric.id);
+    const next = bodyMetrics.find((item) => item.id !== editingMetric.id);
+    setMetricId(next?.id ?? "");
+    setEditingMetric(next ?? emptyBodyMetric());
   };
 
   const addBinding = () => {
     const weight = Math.min(1, Math.max(0, Number(bindingWeight)));
     if (!Number.isFinite(weight)) return;
-    saveBodyMetric({
+    const updated = {
       ...metric,
       zoneBindings: [...(metric.zoneBindings ?? []).filter((binding) => binding.zoneId !== bindingZone), { zoneId: bindingZone, weight }],
-    });
+    };
+    saveBodyMetric(updated);
+    if (editingMetric.id === updated.id) setEditingMetric(updated);
   };
 
   const removeBinding = (zoneId: ZoneId) => {
-    saveBodyMetric({ ...metric, zoneBindings: (metric.zoneBindings ?? []).filter((binding) => binding.zoneId !== zoneId) });
+    const updated = { ...metric, zoneBindings: (metric.zoneBindings ?? []).filter((binding) => binding.zoneId !== zoneId) };
+    saveBodyMetric(updated);
+    if (editingMetric.id === updated.id) setEditingMetric(updated);
   };
 
-  if (!metric) return null;
+  const metricManager = (
+    <section className="measurement-manager">
+      <div className="panel metric-manager-list">
+        <div className="panel-heading"><div><span className="eyebrow">{t("measurements.manageEyebrow")}</span><h2>{t("measurements.manage")}</h2></div></div>
+        {bodyMetrics.map((item) => (
+          <button type="button" key={item.id} className={editingMetric.id === item.id ? "row-button active" : "row-button"} onClick={() => startEditMetric(item)}>
+            <span>{dataLabel(item.name)}</span>
+            <small>{dataLabel(item.unit)}</small>
+          </button>
+        ))}
+        <button type="button" className="secondary wide" onClick={() => setEditingMetric(emptyBodyMetric())}>{t("measurements.newMetric")}</button>
+      </div>
+      <form className="form panel" onSubmit={submitMetric}>
+        <h2>{bodyMetrics.some((item) => item.id === editingMetric.id) ? t("measurements.editMetric") : t("measurements.newMetric")}</h2>
+        <label>{t("measurements.name")}<input value={editingMetric.name} onChange={(event) => setEditingMetric({ ...editingMetric, name: event.target.value })} required /></label>
+        <label>{t("skills.unit")}<input value={editingMetric.unit} onChange={(event) => setEditingMetric({ ...editingMetric, unit: event.target.value })} required /></label>
+        <label>{t("measurements.direction")}<select value={editingMetric.betterDirection} onChange={(event) => setEditingMetric({ ...editingMetric, betterDirection: event.target.value as BodyMetric["betterDirection"] })}><option value="higher">{t("measurements.higher")}</option><option value="lower">{t("measurements.lower")}</option></select></label>
+        <div className="form-actions">
+          <button type="submit">{t("measurements.saveMetric")}</button>
+          {bodyMetrics.some((item) => item.id === editingMetric.id) && <button type="button" className="danger" onClick={removeSelectedMetric}>{t("measurements.deleteMetric")}</button>}
+        </div>
+      </form>
+    </section>
+  );
 
   return (
     <main className="page measurements-page">
@@ -102,7 +142,10 @@ export function BodyMeasurementsPage() {
         <div className="analytics-controls">
           <label>
             {t("measurements.metric")}
-            <select value={metric.id} onChange={(event) => setMetricId(event.target.value)}>
+            <select value={metric?.id ?? ""} onChange={(event) => {
+              const selected = bodyMetrics.find((item) => item.id === event.target.value);
+              if (selected) startEditMetric(selected);
+            }}>
               {bodyMetrics.map((item) => <option key={item.id} value={item.id}>{dataLabel(item.name)}</option>)}
             </select>
           </label>
@@ -116,6 +159,9 @@ export function BodyMeasurementsPage() {
         </div>
       </section>
 
+      {metricManager}
+
+      {!metric ? <section className="panel empty-metrics"><p>{t("measurements.noMetrics")}</p></section> : <>
       <section className="analytics-summary measurements-summary">
         <article className="summary-card"><span>{t("measurements.latest")}</span><strong>{latest ? `${latest.value.toFixed(1)} ${dataLabel(metric.unit)}` : "—"}</strong><small>{latest ? formatDateTime(latest.date, latest.time, locale) : t("measurements.noData")}</small></article>
         <article className="summary-card"><span>{t("measurements.totalChange")}</span><strong style={{ color: zoneMeasurementColor(progressPercent) }}>{change === null ? "—" : `${change > 0 ? "+" : ""}${change.toFixed(1)} ${dataLabel(metric.unit)}`}</strong><small>{t(`measurements.${metric.betterDirection}`)}</small></article>
@@ -127,7 +173,7 @@ export function BodyMeasurementsPage() {
         <BodyMeasurementChart points={points} metric={metric} granularity={granularity} />
       </section>
 
-      <section className="measurements-grid">
+      <section className="measurements-grid single">
         <form className="form panel" onSubmit={submitMeasurement}>
           <h2>{t("measurements.add")}</h2>
           <div className="two-cols">
@@ -139,13 +185,6 @@ export function BodyMeasurementsPage() {
           <button type="submit">{t("measurements.save")}</button>
         </form>
 
-        <form className="form panel" onSubmit={submitMetric}>
-          <h2>{t("measurements.newMetric")}</h2>
-          <label>{t("measurements.name")}<input value={newName} onChange={(event) => setNewName(event.target.value)} required /></label>
-          <label>{t("skills.unit")}<input value={newUnit} onChange={(event) => setNewUnit(event.target.value)} required /></label>
-          <label>{t("measurements.direction")}<select value={newDirection} onChange={(event) => setNewDirection(event.target.value as BodyMetric["betterDirection"])}><option value="higher">{t("measurements.higher")}</option><option value="lower">{t("measurements.lower")}</option></select></label>
-          <button type="submit" className="secondary">{t("measurements.createMetric")}</button>
-        </form>
       </section>
 
       <section className="panel measurement-bindings">
@@ -172,6 +211,7 @@ export function BodyMeasurementsPage() {
           </table>
         </div>
       </section>
+      </>}
     </main>
   );
 }

@@ -276,7 +276,14 @@ label small { color: #788797; font-weight: 500; }
 .positive-progress { color: #9fc8b8; }
 .negative-progress { color: #e09b92; }
 .measurements-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px; }
+.measurements-grid.single { grid-template-columns: minmax(320px, 1fr); }
 .measurements-grid .form { margin-top: 0; align-content: start; }
+.measurement-manager { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(360px, 1.2fr); gap: 24px; margin-bottom: 24px; align-items: start; }
+.metric-manager-list { display: grid; gap: 8px; }
+.metric-manager-list .panel-heading { margin-bottom: 8px; }
+.measurement-manager .form { margin-top: 0; }
+.empty-metrics { margin-bottom: 24px; }
+.empty-metrics p { margin: 0; }
 .measurement-history { margin-top: 24px; }
 .measurement-bindings { display: grid; gap: 14px; margin-bottom: 24px; }
 .measurement-bindings p { margin: 0; }
@@ -504,7 +511,7 @@ label small { color: #788797; font-weight: 500; }
 
 @media (max-width: 900px) {
   .hero { align-items: start; flex-direction: column; }
-  .dashboard-grid, .skills-page, .measurements-grid { grid-template-columns: 1fr; }
+  .dashboard-grid, .skills-page, .measurements-grid, .measurement-manager { grid-template-columns: 1fr; }
   .guide-section { grid-template-columns: 1fr; }
   .guide-status-grid { grid-template-columns: 1fr; }
   .guide-metric-grid { grid-template-columns: 1fr; }

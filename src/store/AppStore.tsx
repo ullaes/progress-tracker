@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { createEmptyAppData, CURRENT_DATA_VERSION, normalizeBodyMetrics, normalizeEntries, normalizeSkills } from "../data/appData";
 import type { AppData, BodyMeasurement, BodyMetric, Entry, Skill } from "../types";
+import { removeBodyMetric } from "../utils/bodyMetricData";
 import { removeEntry, replaceEntry } from "../utils/entryData";
 
 const STORAGE_KEY = "progress-tracker-data-v1";
@@ -13,6 +14,7 @@ type Store = AppData & {
   deleteEntry: (entryId: string) => void;
   addBodyMetric: (metric: BodyMetric) => void;
   saveBodyMetric: (metric: BodyMetric) => void;
+  deleteBodyMetric: (metricId: string) => void;
   addBodyMeasurement: (measurement: BodyMeasurement) => void;
   deleteBodyMeasurement: (measurementId: string) => void;
   importData: (data: AppData) => void;
@@ -72,8 +74,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       addBodyMetric: (metric) => update((current) => ({ ...current, bodyMetrics: [...current.bodyMetrics, { ...metric, zoneBindings: metric.zoneBindings ?? [] }] })),
       saveBodyMetric: (metric) => update((current) => ({
         ...current,
-        bodyMetrics: current.bodyMetrics.map((item) => item.id === metric.id ? { ...metric, zoneBindings: metric.zoneBindings ?? [] } : item),
+        bodyMetrics: current.bodyMetrics.some((item) => item.id === metric.id)
+          ? current.bodyMetrics.map((item) => item.id === metric.id ? { ...metric, zoneBindings: metric.zoneBindings ?? [] } : item)
+          : [...current.bodyMetrics, { ...metric, zoneBindings: metric.zoneBindings ?? [] }],
       })),
+      deleteBodyMetric: (metricId) => update((current) => ({ ...current, ...removeBodyMetric(current.bodyMetrics, current.bodyMeasurements, metricId) })),
       addBodyMeasurement: (measurement) => update((current) => ({ ...current, bodyMeasurements: [...current.bodyMeasurements, measurement] })),
       deleteBodyMeasurement: (measurementId) => update((current) => ({
         ...current,

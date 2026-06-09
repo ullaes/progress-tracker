@@ -8,6 +8,7 @@ import { decayStatus, decayValue } from "./decay";
 import { fractionalLevel, integerLevel } from "./levelMath";
 import { backupFileName, parseAppDataBackup, serializeAppDataBackup } from "./dataTransfer";
 import { getZoneMeasurementProgress, getZoneTrainingMeasurementCorrelation, metricMeasurementChangePercent, metricMeasurementProgressPercent, zoneMeasurementColor } from "./bodyZoneMath";
+import { removeBodyMetric } from "./bodyMetricData";
 import { removeEntry, replaceEntry } from "./entryData";
 import { getZoneHealth, getZoneLevel, zoneHealthColor } from "./zoneMath";
 import { entryDateTime, meditationEffectiveMinutes, trainingImpact, trainingReps, trainingVolume } from "./trainingMath";
@@ -200,6 +201,23 @@ describe("entry editing", () => {
       { id: "second", type: "training" as const, skillId: skill.id, date: "2026-01-02", sets: [{ id: "set", reps: 5 }] },
     ];
     expect(removeEntry(entries, "first")).toEqual([entries[1]]);
+  });
+});
+
+describe("body metric management", () => {
+  it("deletes a metric together with only its linked measurements", () => {
+    const otherMetric = { ...sampleData.bodyMetrics[0], id: "other-metric" };
+    const result = removeBodyMetric(
+      [sampleData.bodyMetrics[0], otherMetric],
+      [
+        sampleData.bodyMeasurements[0],
+        { ...sampleData.bodyMeasurements[0], id: "other-measurement", metricId: otherMetric.id },
+      ],
+      sampleData.bodyMetrics[0].id,
+    );
+
+    expect(result.bodyMetrics).toEqual([otherMetric]);
+    expect(result.bodyMeasurements).toEqual([expect.objectContaining({ id: "other-measurement" })]);
   });
 });
 
